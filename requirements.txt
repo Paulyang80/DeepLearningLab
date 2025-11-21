@@ -1,0 +1,21 @@
+# FastAPI Web Framework
+fastapi==0.110.0
+
+# Uvicorn server
+uvicorn[standard]==0.29.0
+
+# Templates (HTML rendering)
+jinja2==3.1.3
+
+# For future ML implementations
+numpy==1.26.4
+pydantic==2.6.4
+
+# Optional but recommended for plotting or scientific work
+scipy==1.12.0
+
+# If using Plotly frontend visualizations (your screenshot uses Plotly.js)
+plotly==5.20.0
+
+# If planning to support PyTorch mode
+torch==2.2.1
