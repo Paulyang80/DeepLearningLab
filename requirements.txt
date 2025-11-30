@@ -19,8 +19,16 @@ plotly==5.20.0
 
 # If planning to support PyTorch mode
 torch==2.2.1
+torchvision==0.17.1
 
 # Matplotlib for plotting
 matplotlib==3.8.4
+
+# Gradio for interactive UI (4.44.1 is the latest version compatible with Python 3.9)
+gradio==4.44.1
+huggingface-hub<0.22
+
+# PIL for image processing
+Pillow==10.2.0
 
 ipykernel==6.29.3

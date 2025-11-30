@@ -21,6 +21,17 @@ ENV/
 .ipynb_checkpoints/
 
 # -------------------------
+# Data / Datasets
+# -------------------------
+data/
+notebooks/data/
+*.csv
+*.tsv
+*.parquet
+*.h5
+*.hdf5
+
+# -------------------------
 # FastAPI / Uvicorn / Temp
 # -------------------------
 *.sqlite3
