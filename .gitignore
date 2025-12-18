@@ -30,6 +30,8 @@ notebooks/data/
 *.parquet
 *.h5
 *.hdf5
+idea/
+reference/
 
 # -------------------------
 # FastAPI / Uvicorn / Temp
