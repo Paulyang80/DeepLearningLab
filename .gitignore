@@ -20,6 +20,9 @@ ENV/
 # Jupyter Notebook
 .ipynb_checkpoints/
 
+# torchvision dataset cache
+.fashion/
+
 # -------------------------
 # Data / Datasets
 # -------------------------
