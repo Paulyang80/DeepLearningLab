@@ -85,6 +85,22 @@ class ExplainLinearResponse(BaseModel):
     errors: List[float]
 
 
+class SurfaceLinearRequest(BaseModel):
+    points: List[Point]
+    w_min: float = -5
+    w_max: float = 5
+    b_min: float = -5
+    b_max: float = 5
+    w_steps: int = 25
+    b_steps: int = 25
+
+
+class SurfaceLinearResponse(BaseModel):
+    w_values: List[float]
+    b_values: List[float]
+    mse_grid: List[List[float]]
+
+
 def _linear_forward(w: float, b: float, x: np.ndarray) -> np.ndarray:
     return w * x + b
 
@@ -204,4 +220,44 @@ def train_linear_step(req: TrainLinearStepRequest) -> TrainLinearStepResponse:
         grad_w=grad_w,
         grad_b=grad_b,
         errors=[float(e) for e in err.tolist()],
+    )
+
+
+@app.post("/surface/linear/mse", response_model=SurfaceLinearResponse)
+def surface_linear_mse(req: SurfaceLinearRequest) -> SurfaceLinearResponse:
+    if not req.points:
+        return SurfaceLinearResponse(w_values=[], b_values=[], mse_grid=[])
+
+    w_steps = int(max(2, min(req.w_steps, 80)))
+    b_steps = int(max(2, min(req.b_steps, 80)))
+
+    w_min = float(req.w_min)
+    w_max = float(req.w_max)
+    b_min = float(req.b_min)
+    b_max = float(req.b_max)
+
+    if not np.isfinite(w_min) or not np.isfinite(w_max) or w_min == w_max:
+        w_min, w_max = -5.0, 5.0
+    if not np.isfinite(b_min) or not np.isfinite(b_max) or b_min == b_max:
+        b_min, b_max = -5.0, 5.0
+
+    x = np.array([p.x for p in req.points], dtype=np.float64)
+    y = np.array([p.y for p in req.points], dtype=np.float64)
+
+    w_values = np.linspace(w_min, w_max, num=w_steps, dtype=np.float64)
+    b_values = np.linspace(b_min, b_max, num=b_steps, dtype=np.float64)
+
+    # Compute MSE grid; vectorize over b for each w.
+    mse_grid: list[list[float]] = []
+    for w in w_values:
+        # y_hat shape: (b_steps, n)
+        y_hat = w * x[None, :] + b_values[:, None]
+        err = y_hat - y[None, :]
+        mse_row = np.mean(err**2, axis=1)
+        mse_grid.append([float(v) for v in mse_row.tolist()])
+
+    return SurfaceLinearResponse(
+        w_values=[float(v) for v in w_values.tolist()],
+        b_values=[float(v) for v in b_values.tolist()],
+        mse_grid=mse_grid,
     )
