@@ -275,6 +275,182 @@ React 使用的是 **JSX/TSX**（你可以把它想成「把 HTML 樣子的東�
 - 不要糾結「這到底是不是 HTML」
 - 先把它當成「用來描述 UI 結構的語法」就好
 
+### 2.3 如果我要用 Python 當後端：Next.js + FastAPI 最小串接
+
+這一小節的目標是：把「前端互動（滑桿、圖形）」和「Python 計算（DL/ML）」接起來，形成你之後做深度學習 demo 的基本架構。
+
+你可以先用線性模型當範例（因為簡單），之後再把同樣的 API 形狀換成 PyTorch 推論 / 訓練。
+
+#### 2.3.1 架構選擇（你有兩種常見做法）
+
+**做法 A：瀏覽器直接呼叫 FastAPI（最直覺）**
+
+```
+Browser (fetch)
+  |
+  v
+FastAPI (Python)
+```
+
+- 優點：最少搬運、最好理解
+- 缺點：需要處理 CORS；如果有金鑰/機密，不適合放在瀏覽器端
+
+**做法 B：Next.js 當 BFF 轉接到 FastAPI（更像真實產品）**
+
+```
+Browser
+  |
+  v
+Next.js Route Handler (Node/BFF)
+  |
+  v
+FastAPI (Python)
+```
+
+- 優點：避免 CORS、可以集中管理 token / session、前端呼叫更單純
+- 缺點：多一層要維護
+
+入門教學建議：先做 A（快），熟了再加 B（更乾淨）。
+
+#### 2.3.2 FastAPI：最小可用 API（先用線性模型示範）
+
+你可以先做一個「吃 $w,b,x$ 回傳 $y$」的 API，之後把內部計算換成 PyTorch 模型即可。
+
+建立一個 `backend/main.py`（檔名可自訂）概念如下：
+
+```python
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+
+app = FastAPI(title="DL Visualizer API")
+
+
+# 做法 A 需要 CORS（只在開發期先這樣開）
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+class LineRequest(BaseModel):
+    w: float
+    b: float
+    x: float
+
+
+class LineResponse(BaseModel):
+    y: float
+
+
+@app.get("/health")
+def health():
+    return {"ok": True}
+
+
+@app.post("/predict/line", response_model=LineResponse)
+def predict_line(req: LineRequest):
+    return {"y": req.w * req.x + req.b}
+```
+
+安裝與啟動（示意）：
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install fastapi uvicorn
+uvicorn backend.main:app --reload --port 8000
+```
+
+> 小提醒：真正在 repo 裡落地時，我會建議把 FastAPI 的依賴寫在 `backend/requirements.txt`，避免跟你的 DL 依賴混在一起；但教學理解上先不用分太細也可以。
+
+#### 2.3.3 Next.js：從前端呼叫 Python API（fetch）
+
+在 Next.js（React）裡，你可以在滑桿變動時呼叫 API。
+
+概念範例（只示範呼叫方式；你可以把它放在 client component 裡）：
+
+```ts
+async function fetchY(w: number, b: number, x: number) {
+  const res = await fetch("http://localhost:8000/predict/line", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ w, b, x }),
+  });
+
+  if (!res.ok) throw new Error(`API error: ${res.status}`);
+  const data = (await res.json()) as { y: number };
+  return data.y;
+}
+```
+
+開發時你會同時跑兩個服務：
+
+- Next.js：`npm run dev`（通常 `http://localhost:3000`）
+- FastAPI：`uvicorn ... --port 8000`（`http://localhost:8000`）
+
+#### 2.3.4 把「線性模型 API」換成「深度學習推論 API」要注意什麼？
+
+當你開始用 PyTorch 做推論，API 外觀仍然可以長得像這樣：
+
+- `POST /predict`：輸入特徵（或影像）→ 回傳 logits / 機率 / 類別
+- `GET /health`：健康檢查
+
+但內部有幾個教學上非常重要的點：
+
+1) **模型只載入一次，不要每個 request 重新載入**
+   - 把 `model = ...` 放在 module 最外層或 startup event
+
+2) **推論要用 `eval()` + `torch.inference_mode()`**
+   - 避免 dropout/bn 行為錯誤，也避免多餘的 gradient 記錄
+
+3) **輸入/輸出格式要教清楚**（這是 DL 教學的重點）
+   - 純數值：JSON array 最簡單（例如 `features: number[]`）
+   - 圖片：教學上常用「base64（JSON）」或「multipart/form-data」
+
+PyTorch 推論的骨架（概念示意）：
+
+```python
+import torch
+from fastapi import FastAPI
+from pydantic import BaseModel
+
+
+app = FastAPI()
+
+
+class PredictRequest(BaseModel):
+    features: list[float]
+
+
+class PredictResponse(BaseModel):
+    logits: list[float]
+
+
+# 模型初始化：只做一次
+model = ...  # torch.nn.Module
+model.eval()
+
+
+@app.post("/predict", response_model=PredictResponse)
+def predict(req: PredictRequest):
+    x = torch.tensor(req.features, dtype=torch.float32).unsqueeze(0)  # (1, d)
+    with torch.inference_mode():
+        logits = model(x)
+    return {"logits": logits.squeeze(0).tolist()}
+```
+
+如果你後續要做「訓練過程可視化」（loss 曲線、梯度下降動畫），通常會再加：
+
+- `POST /train/step`：做一步訓練，回傳 loss、w/b、metrics
+- 或 `GET /train/stream`：用 WebSocket / SSE 串流回傳訓練狀態
+
+（這部分我可以再幫你寫成第三單元：把 gradient descent / training loop 變成可互動 UI。）
+
 ---
 
 ## 3) 前端 vs 後端：用 Python 友善的方式看架構
