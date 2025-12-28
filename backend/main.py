@@ -1,13 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+import numpy as np
+from typing import List
 
 app = FastAPI(title="DeepLearningLab API")
 
 # Dev-only: allow Next.js dev server
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=[],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1):\d+",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -24,6 +27,86 @@ class LineResponse(BaseModel):
     y: float
 
 
+class Point(BaseModel):
+    x: float
+    y: float
+
+
+class DatasetRequest(BaseModel):
+    n: int = 40
+    seed: int = 42
+    x_min: float = -5
+    x_max: float = 5
+    true_w: float = 1.5
+    true_b: float = -0.5
+    noise_std: float = 0.8
+
+
+class DatasetResponse(BaseModel):
+    points: List[Point]
+
+
+class MSERequest(BaseModel):
+    w: float
+    b: float
+    points: List[Point]
+
+
+class MSEResponse(BaseModel):
+    mse: float
+
+
+class TrainLinearStepRequest(BaseModel):
+    w: float
+    b: float
+    learning_rate: float = 0.05
+    points: List[Point]
+
+
+class TrainLinearStepResponse(BaseModel):
+    w: float
+    b: float
+    loss: float
+    grad_w: float
+    grad_b: float
+    errors: List[float]
+
+
+class ExplainLinearRequest(BaseModel):
+    w: float
+    b: float
+    points: List[Point]
+
+
+class ExplainLinearResponse(BaseModel):
+    mse: float
+    grad_w: float
+    grad_b: float
+    errors: List[float]
+
+
+def _linear_forward(w: float, b: float, x: np.ndarray) -> np.ndarray:
+    return w * x + b
+
+
+def _mse_loss(y_hat: np.ndarray, y: np.ndarray) -> float:
+    err = y_hat - y
+    return float(np.mean(err**2))
+
+
+def _mse_gradients(x: np.ndarray, y_hat: np.ndarray, y: np.ndarray) -> tuple[float, float, np.ndarray]:
+    err = y_hat - y
+    grad_w = float(2.0 * np.mean(err * x))
+    grad_b = float(2.0 * np.mean(err))
+    return grad_w, grad_b, err
+
+
+def _sgd_update(w: float, b: float, grad_w: float, grad_b: float, lr: float) -> tuple[float, float]:
+    new_w = float(w - lr * grad_w)
+    new_b = float(b - lr * grad_b)
+    return new_w, new_b
+
+
 @app.get("/health")
 def health() -> dict:
     return {"ok": True}
@@ -32,3 +115,93 @@ def health() -> dict:
 @app.post("/predict/line", response_model=LineResponse)
 def predict_line(req: LineRequest) -> LineResponse:
     return LineResponse(y=req.w * req.x + req.b)
+
+
+@app.post("/dataset/linear", response_model=DatasetResponse)
+def dataset_linear(req: DatasetRequest) -> DatasetResponse:
+    n = int(max(1, min(req.n, 5000)))
+    rng = np.random.default_rng(int(req.seed))
+
+    x = rng.uniform(req.x_min, req.x_max, size=n)
+    y = req.true_w * x + req.true_b + rng.normal(0.0, req.noise_std, size=n)
+
+    points = [Point(x=float(xi), y=float(yi)) for xi, yi in zip(x, y)]
+    return DatasetResponse(points=points)
+
+
+@app.post("/metrics/mse", response_model=MSEResponse)
+def metrics_mse(req: MSERequest) -> MSEResponse:
+    if not req.points:
+        return MSEResponse(mse=0.0)
+
+    x = np.array([p.x for p in req.points], dtype=np.float64)
+    y = np.array([p.y for p in req.points], dtype=np.float64)
+    y_hat = req.w * x + req.b
+    mse = float(np.mean((y_hat - y) ** 2))
+    return MSEResponse(mse=mse)
+
+
+@app.post("/explain/linear", response_model=ExplainLinearResponse)
+def explain_linear(req: ExplainLinearRequest) -> ExplainLinearResponse:
+    if not req.points:
+        return ExplainLinearResponse(mse=0.0, grad_w=0.0, grad_b=0.0, errors=[])
+
+    x = np.array([p.x for p in req.points], dtype=np.float64)
+    y = np.array([p.y for p in req.points], dtype=np.float64)
+
+    # forward
+    y_hat = _linear_forward(req.w, req.b, x)
+
+    # loss
+    mse = _mse_loss(y_hat, y)
+
+    # gradients
+    grad_w, grad_b, err = _mse_gradients(x, y_hat, y)
+
+    return ExplainLinearResponse(
+        mse=mse,
+        grad_w=grad_w,
+        grad_b=grad_b,
+        errors=[float(e) for e in err.tolist()],
+    )
+
+
+@app.post("/train/linear/step", response_model=TrainLinearStepResponse)
+def train_linear_step(req: TrainLinearStepRequest) -> TrainLinearStepResponse:
+    if not req.points:
+        return TrainLinearStepResponse(
+            w=req.w,
+            b=req.b,
+            loss=0.0,
+            grad_w=0.0,
+            grad_b=0.0,
+            errors=[],
+        )
+
+    lr = float(req.learning_rate)
+    if not np.isfinite(lr) or lr <= 0:
+        lr = 0.05
+
+    x = np.array([p.x for p in req.points], dtype=np.float64)
+    y = np.array([p.y for p in req.points], dtype=np.float64)
+
+    # forward
+    y_hat = _linear_forward(req.w, req.b, x)
+
+    # loss
+    loss = _mse_loss(y_hat, y)
+
+    # gradients
+    grad_w, grad_b, err = _mse_gradients(x, y_hat, y)
+
+    # update
+    new_w, new_b = _sgd_update(req.w, req.b, grad_w, grad_b, lr)
+
+    return TrainLinearStepResponse(
+        w=new_w,
+        b=new_b,
+        loss=loss,
+        grad_w=grad_w,
+        grad_b=grad_b,
+        errors=[float(e) for e in err.tolist()],
+    )
