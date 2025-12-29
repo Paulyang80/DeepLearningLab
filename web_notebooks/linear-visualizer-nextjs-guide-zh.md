@@ -810,4 +810,3 @@ $$y = wx + b$$
 - UI 反應快（前端即時計算或即時渲染）
 - 重計算交給 Python（更適合 ML/DL 生態）
 
-如果你希望我下一步也幫你補上「Next.js 呼叫 FastAPI」的最小範例（例如 `/api/line` 轉呼叫 Python `/predict`），我可以再加一段延伸章節。
