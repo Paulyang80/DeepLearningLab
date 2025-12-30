@@ -2,7 +2,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import numpy as np
-from typing import List
+from typing import List, Optional
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from pathlib import Path
+
+# Import CNN module
+from backend.cnn import SimpleCNN, CNNPredictor
 
 app = FastAPI(title="DeepLearningLab API")
 
@@ -429,3 +436,48 @@ def surface_linear_mse(req: SurfaceLinearRequest) -> SurfaceLinearResponse:
         b_values=[float(v) for v in b_values.tolist()],
         mse_grid=mse_grid,
     )
+
+
+# ============================================================================
+# CNN / MNIST Section
+# ============================================================================
+
+
+class MNISTPredictRequest(BaseModel):
+    image: str  # base64-encoded PNG/JPEG or data URL
+    return_feature_maps: bool = False
+
+
+class MNISTPredictResponse(BaseModel):
+    predicted_digit: int
+    probabilities: List[float]
+    logits: List[float]
+    conv1_maps: Optional[List[List[List[float]]]] = None  # (16, H, W)
+    conv2_maps: Optional[List[List[List[float]]]] = None  # (32, H, W)
+
+
+# Initialize CNN predictor
+MODEL_DIR = Path(__file__).parent / "models"
+cnn_predictor = CNNPredictor(MODEL_DIR)
+
+
+@app.post("/predict/mnist", response_model=MNISTPredictResponse)
+def predict_mnist(req: MNISTPredictRequest) -> MNISTPredictResponse:
+    """
+    Predict MNIST digit from base64 image.
+    Optionally return conv1 and conv2 feature maps for visualization.
+    """
+    try:
+        result = cnn_predictor.predict(
+            image_str=req.image,
+            return_feature_maps=req.return_feature_maps
+        )
+        return MNISTPredictResponse(**result)
+    except Exception as e:
+        raise ValueError(f"Prediction failed: {e}")
+
+
+@app.get("/model/cnn/info")
+def cnn_model_info() -> dict:
+    """Return basic info about the CNN model."""
+    return cnn_predictor.get_model_info()

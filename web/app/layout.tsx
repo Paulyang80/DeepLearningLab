@@ -47,6 +47,12 @@ export default function RootLayout({
               >
                 Logistic Regression
               </Link>
+              <Link
+                href="/cnn"
+                className="rounded-full border border-zinc-200 bg-white px-4 py-2 text-zinc-900 hover:bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-50 dark:hover:bg-zinc-900"
+              >
+                CNN / MNIST
+              </Link>
             </nav>
           </div>
         </header>
