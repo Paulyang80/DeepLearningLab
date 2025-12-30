@@ -10,19 +10,32 @@
 
 ```
 backend/
-├── cnn/                          # 新增：CNN 模組
+├── cnn/                          # CNN 模組（所有檔案都在這裡）
 │   ├── __init__.py              # 模組初始化
 │   ├── model.py                 # SimpleCNN 架構定義
 │   ├── predictor.py             # CNNPredictor 預測器
 │   ├── trainer.py               # CNNTrainer 訓練器
+│   │
 │   ├── README.md                # 完整使用文檔
+│   ├── QUICK_START.md           # 快速開始指南 ⭐ 新增
+│   │
+│   ├── train_cnn.py             # 訓練腳本 ✅ 已移入
+│   ├── test_mnist_api.py        # API 測試 ✅ 已移入
+│   ├── test_cnn_module.py       # 模組測試 ✅ 已移入
+│   ├── diagnose_preprocess.py   # 預處理診斷 ✅ 已移入
+│   ├── diagnose_web_issue.py    # 網頁問題診斷 ✅ 已移入
+│   │
 │   └── docs/                    # 文檔集合
+│       ├── README.md            # 原始 README
 │       ├── IMPROVEMENTS.md      # 模型改進記錄
-│       ├── BUGFIX_PREDICTION.md # Bug 修復記錄
-│       └── README.md            # 原始 README
-├── main.py                       # 重構：使用 cnn 模組
-├── train_cnn.py                  # 重構：呼叫 cnn.trainer
-└── test_cnn_module.py           # 新增：模組測試腳本
+│       └── BUGFIX_PREDICTION.md # Bug 修復記錄
+│
+├── models/                       # 訓練好的模型
+│   ├── mnist_cnn.pth
+│   ├── mnist_cnn_best.pth
+│   └── .gitignore
+│
+└── main.py                       # FastAPI 後端（使用 cnn 模組）
 ```
 
 ## 🔄 主要變更
@@ -92,8 +105,10 @@ backend/
 
 ### 程式碼行數
 - `main.py`: -150 行 ↓
-- `train_cnn.py`: -130 行 ↓
-- 新增模組: +430 行 (但結構清晰、有文檔)
+- `train_cnn.py`: 簡化為 wrapper (17 行)
+- 所有測試與診斷腳本：移入 `cnn/` 目錄
+- 新增模組: +430 行 (結構清晰、有完整文檔)
+- 新增 `QUICK_START.md`: 快速使用指南
 
 ## 🧪 驗證結果
 
@@ -111,22 +126,32 @@ CNN Module Tests
 ============================================================
 Results: 5/5 tests passed
 ✓ All tests passed! Module refactoring successful.
-```
-
 ### API 測試
 ```bash
-$ curl http://localhost:8000/model/cnn/info
-{
-  "architecture": "SimpleCNN: Conv(16)->ReLU->Pool->Dropout->Conv(32)->ReLU->Pool->Dropout->FC(128)->Dropout->FC(10)",
-  "input_shape": [1, 28, 28],
-  "output_classes": 10,
-  "model_path": ".../mnist_cnn.pth",
-  "best_model_path": ".../mnist_cnn_best.pth",
-  "loaded": true,
-  "exists": true,
-  "parameters": 206922
-}
+$ cd backend/cnn
+$ python3 test_mnist_api.py
+============================================================
+MNIST Prediction Test
+============================================================
+Testing with MNIST test set image 0, true label: 7
+
+✓ Prediction successful!
+  Predicted digit: 7
+  True label: 7
+  Match: ✓
+
+  Top 3 probabilities:
+    7: 99.97%
+    2: 0.02%
+    9: 0.01%
+
+Testing 20 images from MNIST test set...
+  Image 0-19: All correct ✓
+
+Accuracy: 20/20 = 100.0%
 ```
+
+✅ **API 完美運作，100% 準確率！**
 
 ✅ **後端 API 正常運作**
 
@@ -134,8 +159,20 @@ $ curl http://localhost:8000/model/cnn/info
 
 ### 訓練模型
 ```bash
-cd backend
+cd backend/cnn
 python3 train_cnn.py
+```
+
+### 測試模組
+```bash
+cd backend/cnn
+python3 test_cnn_module.py
+```
+
+### 測試 API
+```bash
+cd backend/cnn
+python3 test_mnist_api.py
 ```
 
 ### 使用預測器
@@ -145,15 +182,26 @@ from pathlib import Path
 
 predictor = CNNPredictor(Path("backend/models"))
 result = predictor.predict(image_str, return_feature_maps=True)
-```
+## 🐛 已知問題
 
-### 自訂訓練
+### ⚠️ 路徑問題（已解決）
+
+**原問題**：從不同目錄執行腳本時 import 失敗
+
+**解決方案**：
+1. ✅ 所有腳本移入 `backend/cnn/` 目錄
+2. ✅ 所有腳本都設置正確的 `sys.path`
+3. ✅ 統一執行方式：`cd backend/cnn && python3 <script>.py`
+
+### ⚠️ 網頁測試問題（需用戶確認）
 ```python
 from backend.cnn.trainer import CNNTrainer
 
 trainer = CNNTrainer(data_root, model_dir, batch_size=64)
 model, best_acc = trainer.train(epochs=10)
 ```
+
+⭐ **詳細使用指南**：`backend/cnn/QUICK_START.md`
 
 ## 🐛 已知問題
 

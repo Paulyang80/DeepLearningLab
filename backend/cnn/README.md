@@ -10,8 +10,14 @@ backend/cnn/
 ├── model.py             # SimpleCNN 架構定義
 ├── predictor.py         # CNNPredictor 預測器
 ├── trainer.py           # CNNTrainer 訓練器
-└── docs/                # 相關文檔
-    ├── README.md        # 使用說明
+├── README.md            # 使用說明 (本文件)
+├── train_cnn.py         # 訓練腳本
+├── test_mnist_api.py    # API 測試腳本
+├── test_cnn_module.py   # 模組測試腳本
+├── diagnose_preprocess.py    # 預處理診斷
+├── diagnose_web_issue.py     # 網頁問題診斷
+└── docs/                # 文檔集合
+    ├── README.md        # 原始 README
     ├── IMPROVEMENTS.md  # 模型改進記錄
     └── BUGFIX_PREDICTION.md  # Bug 修復記錄
 ```
@@ -45,12 +51,13 @@ Softmax → 機率分佈
 第一次使用前需要先訓練模型：
 
 ```bash
-cd /Users/paulyang/Projects/DeepLearningLab/backend
+# 從專案根目錄
+cd /Users/paulyang/Projects/DeepLearningLab/backend/cnn
 python3 train_cnn.py
 ```
 
 這會：
-- 使用 `../notebooks/data/MNIST` 中的資料
+- 使用 `../../notebooks/data/MNIST` 中的資料
 - 自動偵測並使用 Mac GPU (MPS) 或 CUDA
 - 訓練 10 個 epochs
 - 儲存模型到 `backend/models/mnist_cnn_best.pth` 和 `mnist_cnn.pth`
@@ -163,11 +170,12 @@ print(f"Best accuracy: {best_acc:.2f}%")
 ### 重要提醒
 - MNIST 原始資料：**白底 (0) + 黑字 (高值)**
 - Canvas 繪製：**白底 (#ffffff) + 黑筆 (#000000)**
-- **不需要顏色反轉**！
-
-訓練與推論必須使用完全相同的預處理流程。
-
-## 🐛 故障排除
+### 模型未載入
+```bash
+# 從 backend/cnn 目錄執行訓練
+cd backend/cnn
+python3 train_cnn.py
+```🐛 故障排除
 
 ### 模型未載入
 ```bash

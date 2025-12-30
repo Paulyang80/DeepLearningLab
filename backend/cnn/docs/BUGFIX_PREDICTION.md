@@ -37,11 +37,14 @@ arr = (arr - mean) / std
 tensor = torch.from_numpy(arr).unsqueeze(0).unsqueeze(0)
 ```
 
-### 關於顏色反轉
-一開始懷疑需要顏色反轉（因為 Canvas 是黑底白字），但診斷後發現：
-- MNIST 原始資料：白底（0）+ 黑字（高值）
-- Canvas 已經設定：白底（#ffffff）+ 黑筆（#000000）
-- **不需要反轉**
+### 關於顏色反轉（影像極性）
+MNIST 原始資料通常是：黑底（0）+ 白字（高值）。
+
+但網頁 Canvas 目前是：白底（#ffffff）+ 黑筆（#000000）。這會和 MNIST 極性相反，導致預測明顯變差。
+
+因此推論端現在用一個簡單的 heuristic 自動處理：
+- 若影像整體偏白（平均亮度 > 0.5），就先做 `arr = 1 - arr` 反色，再套用 Normalize。
+- 若影像本來就接近 MNIST（黑底白字），則不反色。
 
 ## 驗證結果
 

@@ -1,8 +1,11 @@
 """
 Quick test script to verify MNIST prediction works correctly.
-Creates a simple test image and sends it to the API.
+Run from backend/cnn/ directory:
+    cd backend/cnn
+    python3 test_mnist_api.py
 """
 
+import sys
 import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
@@ -13,11 +16,15 @@ from PIL import Image
 import requests
 import json
 
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
+
 def test_with_real_mnist():
     """Test with a real MNIST image to verify preprocessing."""
     
     # Load a real MNIST test image
-    data_root = Path(__file__).parent.parent / "notebooks" / "data"
+    data_root = Path(__file__).parent.parent.parent / "notebooks" / "data"
     test_dataset = datasets.MNIST(root=data_root, train=False, download=False)
     
     # Get first image (should be a 7)
@@ -58,7 +65,7 @@ def test_with_real_mnist():
 
 def test_multiple_images(n=10):
     """Test with multiple MNIST images."""
-    data_root = Path(__file__).parent.parent / "notebooks" / "data"
+    data_root = Path(__file__).parent.parent.parent / "notebooks" / "data"
     test_dataset = datasets.MNIST(root=data_root, train=False, download=False)
     
     correct = 0

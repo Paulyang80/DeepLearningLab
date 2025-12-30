@@ -83,9 +83,9 @@ class CNNPredictor:
         3. Normalize to [0, 1]
         4. Apply MNIST normalization (mean=0.1307, std=0.3081)
         
-        Note: MNIST images are white background (0) + black digits (high values).
-              Canvas drawing should match this: white bg + black pen.
-              NO color inversion needed.
+          Note: MNIST images are typically black background (0) with white digits (high values).
+              Many drawing canvases produce white background with black ink; in that case, we
+              invert automatically so inference matches MNIST polarity.
         
         Args:
             image_str: Base64-encoded image or data URL (e.g., "data:image/png;base64,...")
@@ -100,8 +100,16 @@ class CNNPredictor:
         else:
             image_bytes = base64.b64decode(image_str)
         
-        # Load and resize image
-        img = Image.open(BytesIO(image_bytes)).convert("L")
+        # Load image; if it has transparency, composite onto white first.
+        img = Image.open(BytesIO(image_bytes))
+        if img.mode in ("RGBA", "LA") or (img.mode == "P" and "transparency" in img.info):
+            img = img.convert("RGBA")
+            bg = Image.new("RGBA", img.size, (255, 255, 255, 255))
+            img = Image.alpha_composite(bg, img).convert("L")
+        else:
+            img = img.convert("L")
+
+        # Resize image
         img = img.resize((28, 28), Image.Resampling.LANCZOS)
         
         # Convert to numpy array
@@ -109,6 +117,11 @@ class CNNPredictor:
         
         # Normalize to [0, 1]
         arr = arr / 255.0
+
+        # Heuristic: invert if the background is mostly white (common for canvas drawings).
+        # MNIST is mostly black background with bright strokes.
+        if float(np.mean(arr)) > 0.5:
+            arr = 1.0 - arr
         
         # Apply MNIST normalization (same as training)
         arr = (arr - cls.MNIST_MEAN) / cls.MNIST_STD

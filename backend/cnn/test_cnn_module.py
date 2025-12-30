@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
 """
 Quick test to verify the refactored CNN module works correctly.
+Run from backend/cnn/ directory:
+    cd backend/cnn
+    python3 test_cnn_module.py
 """
 
 import sys
 from pathlib import Path
 
 # Add project root to path
-project_root = Path(__file__).parent.parent
+project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
 def test_model_import():
@@ -25,7 +28,7 @@ def test_predictor_init():
     from backend.cnn import CNNPredictor
     from pathlib import Path
     
-    model_dir = Path(__file__).parent / "backend" / "models"
+    model_dir = Path(__file__).parent.parent / "models"
     predictor = CNNPredictor(model_dir)
     print(f"✓ CNNPredictor initialized")
     return True
@@ -36,7 +39,7 @@ def test_predictor_load():
     from backend.cnn import CNNPredictor
     from pathlib import Path
     
-    model_dir = Path(__file__).parent / "backend" / "models"
+    model_dir = Path(__file__).parent.parent / "models"
     predictor = CNNPredictor(model_dir)
     model = predictor.load_model()
     print(f"✓ Model loaded successfully")
@@ -48,7 +51,7 @@ def test_model_info():
     from backend.cnn import CNNPredictor
     from pathlib import Path
     
-    model_dir = Path(__file__).parent / "backend" / "models"
+    model_dir = Path(__file__).parent.parent / "models"
     predictor = CNNPredictor(model_dir)
     info = predictor.get_model_info()
     print(f"✓ Model info retrieved")

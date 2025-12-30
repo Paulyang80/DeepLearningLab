@@ -157,7 +157,7 @@ def test_direct_module():
         from backend.cnn import CNNPredictor
         from pathlib import Path
         
-        model_dir = Path("backend/models")
+        model_dir = Path(__file__).parent.parent / "models"
         predictor = CNNPredictor(model_dir)
         
         print("✓ Module imported successfully")

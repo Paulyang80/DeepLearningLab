@@ -1,17 +1,24 @@
 """
 Diagnostic script to check what the preprocessing actually produces.
+Run from backend/cnn/ directory:
+    cd backend/cnn
+    python3 diagnose_preprocess.py
 """
 
+import sys
 import torch
 import torchvision.transforms as transforms
 from torchvision import datasets
 from pathlib import Path
 import numpy as np
 from PIL import Image
-import matplotlib.pyplot as plt
+
+# Add project root to path
+project_root = Path(__file__).parent.parent.parent
+sys.path.insert(0, str(project_root))
 
 # Load MNIST
-data_root = Path(__file__).parent.parent / "notebooks" / "data"
+data_root = Path(__file__).parent.parent.parent / "notebooks" / "data"
 
 # Original dataset
 orig_dataset = datasets.MNIST(root=data_root, train=False, download=False)
